@@ -148,23 +148,20 @@ void lp_display_values(Lp *lp) {
 
 void lp_solve(Lp *lp) {
     while (1) {
-        lp_display_table(lp);
-        printf("\n");
         if (!lp_pivot(lp)) {
             break;
         }
     }
 }
 
-#define VARS 3
 int main(void) {
-    Lp *lp = lp_new(VARS);
+    Lp *lp = lp_new(3);
 
     float objective[] = {0.0, 40.0, 60.0, 50.0};
-    lp_add_objective_function(lp, VARS + 1, objective);
+    lp_add_objective_function(lp, 4, objective);
 
     int constraints = 3;
-    float coeffs[][VARS] = {
+    float coeffs[][3] = {
         {4.0, 6.0, 5.0},
         {3.0, 8.0, 6.0},
         {2.0, 3.0, 4.0},
@@ -176,11 +173,10 @@ int main(void) {
     };
 
     for (int i = 0; i < constraints; ++i) {
-        lp_add_constraint_leq(lp, VARS + 1, coeffs[i], constants[i]);
+        lp_add_constraint_leq(lp, 4, coeffs[i], constants[i]);
     }
 
     lp_solve(lp);
-    lp_display_table(lp);
     lp_display_values(lp);
 
     lp_free(&lp);
