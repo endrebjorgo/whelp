@@ -3,12 +3,12 @@
 
 #define TABLE_BUF_SIZE 256
 #define VAR_BUF_SIZE 16
-#define MAX_FLOAT 1000000.0f // For now...
+#define MAX_DOUBLE 1000000.0 // For now...
 
 typedef struct {
     int rows;
     int cols;
-    float table[TABLE_BUF_SIZE];
+    double table[TABLE_BUF_SIZE];
     int idxs[TABLE_BUF_SIZE];
 } Lp;
 
@@ -40,7 +40,7 @@ void lp_display_table(Lp *lp) {
     }
 }
 
-void lp_add_row(Lp *lp, int size, float *values) {
+void lp_add_row(Lp *lp, int size, double *values) {
     if (size != lp->cols) {
         fprintf(stderr, "ERROR: wrong number of values");
         exit(1);
@@ -52,7 +52,7 @@ void lp_add_row(Lp *lp, int size, float *values) {
     lp->rows++;
 }
 
-void lp_add_objective_function(Lp *lp, int size, float *coefficients) {
+void lp_add_objective_function(Lp *lp, int size, double *coefficients) {
     if (lp->rows != 0) {
         fprintf(stderr, "ERROR: attempted to add objective to non-empty table");
         exit(1);
@@ -60,12 +60,12 @@ void lp_add_objective_function(Lp *lp, int size, float *coefficients) {
     lp_add_row(lp, size, coefficients);
 }
 
-void lp_add_constraint_leq(Lp *lp, int size, float *coefficients, float constant) {
+void lp_add_constraint_leq(Lp *lp, int size, double *coefficients, double constant) {
     if (lp->rows == 0) {
         fprintf(stderr, "ERROR: attempted to add constraint to empty table");
         exit(1);
     }
-    float *values = malloc(size * sizeof(float));
+    double *values = malloc(size * sizeof(double));
     if (values == NULL) {
         fprintf(stderr, "ERROR: malloc failed");
         exit(1);
@@ -84,21 +84,21 @@ int lp_assign_pivot_idxs(Lp *lp, int *row, int *col) {
             best_j = j;
         }
     }
-    if (lp->table[best_j] <= 0.0f) {
+    if (lp->table[best_j] <= 0.0) {
         return 0;
     }
-    float min_reciprocal_ratio = MAX_FLOAT; 
+    double min_reciprocal_ratio = MAX_DOUBLE; 
     int best_i = 1;
     for (int i = 1; i < lp->rows; ++i) {
-        float num = lp->table[i * lp->cols + best_j];
-        float den = lp->table[i * lp->cols];
-        float reciprocal_ratio = num / den;
+        double num = lp->table[i * lp->cols + best_j];
+        double den = lp->table[i * lp->cols];
+        double reciprocal_ratio = num / den;
         if (reciprocal_ratio < min_reciprocal_ratio) {
             min_reciprocal_ratio = reciprocal_ratio;
             best_i = i;
         }
     }
-    if (min_reciprocal_ratio >= 0.0f) {
+    if (min_reciprocal_ratio >= 0.0) {
         return 0;
     }
     *row = best_i;
@@ -112,8 +112,8 @@ int lp_pivot(Lp *lp) {
     if (!lp_assign_pivot_idxs(lp, &row, &col)) {
         return 0;
     }
-    float divisor = -1.0 * lp->table[row * lp->cols + col];
-    lp->table[row * lp->cols + col] = -1.0f;
+    double divisor = -1.0 * lp->table[row * lp->cols + col];
+    lp->table[row * lp->cols + col] = -1.0;
     for (int j = 0; j < lp->cols; ++j) {
         lp->table[row*lp->cols + j] /= divisor;
     }
@@ -121,8 +121,8 @@ int lp_pivot(Lp *lp) {
         if (i == row) {
             continue;
         }
-        float scale = lp->table[i * lp->cols + col];
-        lp->table[i * lp->cols + col] = 0.0f;
+        double scale = lp->table[i * lp->cols + col];
+        lp->table[i * lp->cols + col] = 0.0;
         for (int j = 0; j < lp->cols; ++j) {
             lp->table[i * lp->cols + j] += lp->table[row * lp->cols + j] * scale;
         }
@@ -137,7 +137,7 @@ int lp_pivot(Lp *lp) {
 void lp_display_values(Lp *lp) {
     printf("Z = %.2f\n", lp->table[0]);
     for (int j = 1; j < lp->cols; ++j) {
-        float value = 0.0f;
+        double value = 0.0;
         if (lp->idxs[j] >= lp->cols) {
             int row = lp->idxs[j] - lp->cols + 1;
             value = lp->table[row * lp->cols];
@@ -157,16 +157,16 @@ void lp_solve(Lp *lp) {
 int main(void) {
     Lp *lp = lp_new(3);
 
-    float objective[] = {0.0, 40.0, 60.0, 50.0};
+    double objective[] = {0.0, 40.0, 60.0, 50.0};
     lp_add_objective_function(lp, 4, objective);
 
     int constraints = 3;
-    float coeffs[][3] = {
+    double coeffs[][3] = {
         {4.0, 6.0, 5.0},
         {3.0, 8.0, 6.0},
         {2.0, 3.0, 4.0},
     };
-    float constants[] = {
+    double constants[] = {
         240.0, 
         200.0,
         120.0
