@@ -11,7 +11,7 @@ typedef struct {
 Var *var_new(char *name, double value) {
     Var *var = calloc(1, sizeof(Var));
     if (var == NULL) {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     var->name = name;
@@ -38,7 +38,7 @@ Expr *expr_new(double constant, double *coeffs, Var **vars, int size) {
     }
     Expr *expr = calloc(1, sizeof(Expr));
     if (expr == NULL) {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     expr->constant = constant;
@@ -89,7 +89,7 @@ typedef struct {
 Constraint *constraint_new(Expr lhs, double rhs, ConstraintOp op) {
     Constraint *con = calloc(1, sizeof(Constraint));
     if (con == NULL) {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     con->lhs = lhs;
@@ -112,7 +112,7 @@ typedef struct {
 Lip *lip_new() {
     Lip *lip = calloc(1, sizeof(Lip));
     if (lip == NULL) {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     return lip;

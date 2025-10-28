@@ -3,9 +3,9 @@
 #include <stdio.h>
 
 Lp *lp_new(int vars) {
-    Lp *lp = malloc(sizeof(Lp));
+    Lp *lp = calloc(1, sizeof(Lp));
     if (lp == NULL)  {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     lp->rows = 0;
@@ -55,9 +55,9 @@ void lp_add_constraint_leq(Lp *lp, int size, double *coefficients, double consta
         fprintf(stderr, "ERROR: attempted to add constraint to empty table");
         exit(1);
     }
-    double *values = malloc(size * sizeof(double));
+    double *values = calloc(size, sizeof(double));
     if (values == NULL) {
-        fprintf(stderr, "ERROR: malloc failed");
+        fprintf(stderr, "ERROR: calloc failed");
         exit(1);
     }
     values[0] = constant;
