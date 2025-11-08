@@ -1,4 +1,5 @@
 # whelp
 Will Handle Easy Linear Programs
 
-WORK IN PROGRESS
+> [!NOTE]  
+> This is a work in progress. Functionality and safety is not guaranteed.

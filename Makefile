@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -std=c99
 TARGET = ./bin/whelp 
-SRC = src/main.c src/lp.c
+SRC = src/main.c 
 
 all: $(TARGET)
 
