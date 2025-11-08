@@ -15,6 +15,7 @@ typedef struct {
 
 Whelp_Arena whelp_arena_new(size_t capacity);
 void *whelp_arena_alloc(Whelp_Arena *arena, size_t size);
+void *whelp_arena_calloc(Whelp_Arena *arena, size_t size);
 void whelp_arena_reset(Whelp_Arena *arena);
 void whelp_arena_free(Whelp_Arena **arena);
 
@@ -29,6 +30,17 @@ typedef struct {
     Whelp_Sense sense;
     double constant;
 } Whelp_Relation;
+
+typedef struct {
+    double *items;
+    size_t rows;
+    size_t cols;
+} Whelp_Table;
+
+Whelp_Table *whelp_table_new(Whelp_Arena *arena, size_t rows, size_t cols);
+double whelp_table_get(Whelp_Table *table, size_t row, size_t col);
+void whelp_table_set(Whelp_Table *table, size_t row, size_t col, double value);
+void whelp_table_display(Whelp_Table *table);
 
 typedef struct {
     double **vars;
@@ -63,6 +75,14 @@ void *whelp_arena_alloc(Whelp_Arena *arena, size_t size) {
     return arena->memory + arena->count - size;
 }
 
+void *whelp_arena_calloc(Whelp_Arena *arena, size_t size) {
+    uint8_t *memory = whelp_arena_alloc(arena, size);
+    for (size_t i = 0; i < size; ++i) {
+        memory[i] = 0;
+    }
+    return (void*)memory;
+}
+
 void whelp_arena_reset(Whelp_Arena *arena) {
     arena->count = 0;
 }
@@ -71,6 +91,56 @@ void whelp_arena_free(Whelp_Arena **arena) {
     free((*arena)->memory);
     free(*arena);
     *arena = NULL;
+}
+
+Whelp_Table *whelp_table_new(Whelp_Arena *arena, size_t rows, size_t cols) {
+    Whelp_Table *table = whelp_arena_alloc(arena, sizeof(Whelp_Table));
+    if (table == NULL) {
+        fprintf(stderr, "ERROR: whelp_arena_alloc failed.\n");
+        exit(1);
+    }
+    table->items = whelp_arena_alloc(arena, rows * cols * sizeof(double));
+    if (table->items == NULL) {
+        fprintf(stderr, "ERROR: whelp_arena_alloc failed.\n");
+        exit(1);
+    }
+    table->rows = rows;
+    table->cols = cols;
+    return table;
+}
+
+double whelp_table_get(Whelp_Table *table, size_t row, size_t col) {
+    if (row >= table->rows) {
+        fprintf(stderr, "ERROR: row out of bounds.\n");
+        exit(1);
+    }
+    if (col >= table->cols) {
+        fprintf(stderr, "ERROR: col out of bounds.\n");
+        exit(1);
+    }
+    return table->items[row * table->cols + col];
+}
+
+void whelp_table_set(Whelp_Table *table, size_t row, size_t col, double value) {
+    if (row >= table->rows) {
+        fprintf(stderr, "ERROR: row out of bounds.\n");
+        exit(1);
+    }
+    if (col >= table->cols) {
+        fprintf(stderr, "ERROR: col out of bounds.\n");
+        exit(1);
+    }
+    table->items[row * table->cols + col] = value;
+}
+
+void whelp_table_display(Whelp_Table *table) {
+    for (size_t i = 0; i < table->rows; ++i) {
+        printf("[ ");
+        for (size_t j = 0; j < table->cols; ++j) {
+            printf("%.2f ", whelp_table_get(table, i, j));
+        }
+        printf("]\n");
+    }
 }
 
 Whelp_Lp *whelp_lp_new(Whelp_Arena *arena, double **vars, size_t vars_count) {
@@ -102,16 +172,11 @@ void whelp_lp_set_objective(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, do
         obj->coeffs[i] = coeffs[i];
     }
     obj->sense = EQ;
-    obj->constant = -constant;
+    obj->constant = -1.0 * constant;
     lp->objective = obj;
 }
 
 void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, Whelp_Sense sense, double constant) {
-    if (sense != LE) {
-        fprintf(stderr, "ERROR: currently does not support GE or EQ constraints.\n");
-        exit(1);
-    }
-
     if (lp->constraints_count == WHELP_MAX_CONSTRAINTS) {
         fprintf(stderr, "ERROR: reached max number of constraints.\n");
         exit(1);
@@ -137,47 +202,35 @@ void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, W
     lp->constraints_count++;
 }
 
-static double *_whelp_lp_generate_tableau(Whelp_Arena *arena, Whelp_Lp *lp) {
+Whelp_Table *whelp_lp_generate_tableau(Whelp_Arena *arena, Whelp_Lp *lp) {
     size_t slack_count = 0;
     for (size_t i = 0; i < lp->constraints_count; ++i) {
         if (lp->constraints[i].sense == EQ) continue;
-        if (lp->constraints[i].sense == GE) {
-            for (size_t j = 0; j < lp->vars_count; ++j) {
-                lp->constraints[i].coeffs[j] *= -1.0;
-            }
-            lp->constraints[i].sense = LE;
-            lp->constraints[i].constant *= -1.0;
-        }
         slack_count++;
     }
-    // TODO: change implementation to work for GE and EQ
-    size_t cols = lp->vars_count + slack_count + 1;
     size_t rows = lp->constraints_count + 1;
-    double *tableau = whelp_arena_alloc(arena, cols * rows * sizeof(double));
-    Whelp_Relation *curr;
+    size_t cols = lp->vars_count + slack_count + 1;
 
-    for (size_t i = 0; i < rows; ++i) {
-        curr = (i == 0) ? lp->objective : &lp->constraints[i - 1];
+    Whelp_Table *table = whelp_table_new(arena, rows, cols);
+
+    for (size_t j = 0; j < lp->vars_count; ++j) {
+        whelp_table_set(table, 0, j, -1.0 * lp->objective->coeffs[j]);
+    }
+    size_t curr_slack = 0;
+    for (size_t i = 1; i < rows; ++i) {
+        Whelp_Relation *curr_constraint = &lp->constraints[i - 1];
         for (size_t j = 0; j < lp->vars_count; ++j) {
-            tableau[i * cols + j] = curr->coeffs[j];
+            whelp_table_set(table, i, j, curr_constraint->coeffs[j]);
         }
-        for (size_t j = lp->vars_count; j < cols - 1; ++j) {
-            tableau[i * cols + j] =  0.0;
-        }
-        tableau[(i + 1) * cols - 1] = curr->constant;
-    }
-    // TODO: Enter 1's in the correct slack variable columns
-    return tableau;
-}
+        whelp_table_set(table, i, table->cols - 1, curr_constraint->constant);
+        
+        if (curr_constraint->sense == EQ) continue;
 
-static void _whelp_tableau_display(double *tableau, size_t rows, size_t cols) {
-    for (size_t i = 0; i < rows; ++i) {
-        printf("[ ");
-        for (size_t j = 0; j < cols; ++j) {
-            printf("%.2f ", tableau[i * cols + j]);
-        }
-        printf("]\n");
+        double value = curr_constraint->sense == LE ? 1.0 : -1.0;
+        whelp_table_set(table, i, lp->vars_count + curr_slack, value);
+        curr_slack++;
     }
+    return table;
 }
 
 void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
@@ -189,10 +242,8 @@ void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
         fprintf(stderr, "ERROR: cannot solve lp without constraints.\n");
         exit(1);
     }
-    double *tableau = _whelp_lp_generate_tableau(arena, lp);
-    size_t rows = lp->constraints_count + 1;
-    size_t cols = lp->vars_count + lp->constraints_count + 1;
-    _whelp_tableau_display(tableau, rows, cols);
+    Whelp_Table *table = whelp_lp_generate_tableau(arena, lp);
+    whelp_table_display(table);
 }
 
 /* ADDED FROM OLD IMPLEMENTATION FOR LATER REFERENCE

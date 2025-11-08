@@ -20,5 +20,7 @@ int main(void) {
     whelp_lp_set_objective(&arena, lp, (double[]){6.0, 9.0}, 0.0);
     whelp_lp_add_constraint(&arena, lp, (double[]){2.0, 3.0}, LE, 12.0);
     whelp_lp_add_constraint(&arena, lp, (double[]){1.0, 1.0}, LE, 5.0);
+    whelp_lp_add_constraint(&arena, lp, (double[]){0.0, 1.0}, GE, 5.0);
+    whelp_lp_add_constraint(&arena, lp, (double[]){3.0, 1.0}, EQ, 8.0);
     whelp_lp_solve(&arena, lp);
 }
