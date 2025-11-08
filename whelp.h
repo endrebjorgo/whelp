@@ -41,7 +41,7 @@ typedef struct {
 Whelp_Lp *whelp_lp_new(Whelp_Arena *arena, double **vars, size_t vars_count);
 void whelp_lp_set_objective(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, double constant);
 void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, Whelp_Sense sense, double constant);
-void whelp_lp_solve(Whelp_Lp *lp);
+void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp);
 
 #endif // WHELP_H
 
@@ -137,7 +137,7 @@ void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, W
     lp->constraints_count++;
 }
 
-static double *_whelp_lp_generate_tableau(Whelp_Lp *lp) {
+static double *_whelp_lp_generate_tableau(Whelp_Arena *arena, Whelp_Lp *lp) {
     size_t slack_count = 0;
     for (size_t i = 0; i < lp->constraints_count; ++i) {
         if (lp->constraints[i].sense == EQ) continue;
@@ -153,7 +153,7 @@ static double *_whelp_lp_generate_tableau(Whelp_Lp *lp) {
     // TODO: change implementation to work for GE and EQ
     size_t cols = lp->vars_count + slack_count + 1;
     size_t rows = lp->constraints_count + 1;
-    double *tableau = malloc(cols * rows * sizeof(double));
+    double *tableau = whelp_arena_alloc(arena, cols * rows * sizeof(double));
     Whelp_Relation *curr;
 
     for (size_t i = 0; i < rows; ++i) {
@@ -166,6 +166,7 @@ static double *_whelp_lp_generate_tableau(Whelp_Lp *lp) {
         }
         tableau[(i + 1) * cols - 1] = curr->constant;
     }
+    // TODO: Enter 1's in the correct slack variable columns
     return tableau;
 }
 
@@ -179,7 +180,7 @@ static void _whelp_tableau_display(double *tableau, size_t rows, size_t cols) {
     }
 }
 
-void whelp_lp_solve(Whelp_Lp *lp) {
+void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
     if (lp->objective == NULL) {
         fprintf(stderr, "ERROR: cannot solve lp without objective.\n");
         exit(1);
@@ -188,12 +189,10 @@ void whelp_lp_solve(Whelp_Lp *lp) {
         fprintf(stderr, "ERROR: cannot solve lp without constraints.\n");
         exit(1);
     }
-    double *tableau = _whelp_lp_generate_tableau(lp);
+    double *tableau = _whelp_lp_generate_tableau(arena, lp);
     size_t rows = lp->constraints_count + 1;
     size_t cols = lp->vars_count + lp->constraints_count + 1;
     _whelp_tableau_display(tableau, rows, cols);
-
-    free(tableau);
 }
 
 /* ADDED FROM OLD IMPLEMENTATION FOR LATER REFERENCE
