@@ -148,14 +148,6 @@ void whelp_table_set(Whelp_Table *table, size_t row, size_t col, double value) {
     table->items[row * table->cols + col] = value;
 }
 
-/* Reference example
-
-    [ -6.00 -9.00 0.00 0.00 0.00 ] 
-    [ 2.00 3.00 1.00 0.00 12.00 ] 
-    [ 1.00 1.00 0.00 1.00 5.00 ] 
-
-*/
-
 int whelp_table_pivot_indices(Whelp_Table *table, size_t *row, size_t *col) 
 {
     size_t pivot_col = 0;
@@ -333,6 +325,15 @@ void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
         printf("\n");
         if (!whelp_table_pivot(table)) break;
         count++;
+    }
+    for (size_t j = 0; j < lp->vars_count; ++j) {
+        if (whelp_table_get(table, 0, j) != 0.0) continue;
+
+        for (size_t i = 1; i < table->rows; ++i) {
+            if (whelp_table_get(table, i, j) == 1.0) {
+                *lp->vars[j] = whelp_table_get(table, i, table->cols - 1);
+            }
+        }
     }
 }
 

@@ -16,4 +16,8 @@ int main(void) {
     whelp_lp_solve(&arena, lp);
 
     whelp_arena_free(&arena);
+
+    printf("%f\n", x);
+    printf("%f\n", y);
+    printf("%f\n", z);
 }
