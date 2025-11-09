@@ -242,10 +242,10 @@ void whelp_lp_set_objective(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, do
         exit(1);
     }
     for (size_t i = 0; i < lp->vars_count; ++i) {
-        obj->coeffs[i] = coeffs[i];
+        obj->coeffs[i] = -1.0 * coeffs[i];
     }
     obj->sense = EQ;
-    obj->constant = -1.0 * constant;
+    obj->constant = constant;
     lp->objective = obj;
 }
 
@@ -277,7 +277,7 @@ void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, W
     lp->constraints_count++;
 }
 
-Whelp_Table *whelp_lp_generate_tableau(Whelp_Arena *arena, Whelp_Lp *lp) {
+Whelp_Table *whelp_lp_generate_table(Whelp_Arena *arena, Whelp_Lp *lp) {
     size_t slack_count = 0;
     for (size_t i = 0; i < lp->constraints_count; ++i) {
         if (lp->constraints[i].sense == EQ) continue;
@@ -289,8 +289,10 @@ Whelp_Table *whelp_lp_generate_tableau(Whelp_Arena *arena, Whelp_Lp *lp) {
     Whelp_Table *table = whelp_table_new(arena, rows, cols);
 
     for (size_t j = 0; j < lp->vars_count; ++j) {
-        whelp_table_set(table, 0, j, -1.0 * lp->objective->coeffs[j]);
+        whelp_table_set(table, 0, j, lp->objective->coeffs[j]);
     }
+    whelp_table_set(table, 0, table->cols - 1, lp->objective->constant);
+        
     size_t curr_slack = 0;
     for (size_t i = 1; i < rows; ++i) {
         Whelp_Relation *curr_constraint = &lp->constraints[i - 1];
@@ -317,7 +319,7 @@ void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
         fprintf(stderr, "ERROR: cannot solve lp without constraints.\n");
         exit(1);
     }
-    Whelp_Table *table = whelp_lp_generate_tableau(arena, lp);
+    Whelp_Table *table = whelp_lp_generate_table(arena, lp);
     
     size_t count = 0;
     while (count < 100) {
