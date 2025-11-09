@@ -19,7 +19,7 @@ Whelp_Arena whelp_arena_new(size_t capacity);
 void *whelp_arena_alloc(Whelp_Arena *arena, size_t size);
 void *whelp_arena_calloc(Whelp_Arena *arena, size_t size);
 void whelp_arena_reset(Whelp_Arena *arena);
-void whelp_arena_free(Whelp_Arena **arena);
+void whelp_arena_free(Whelp_Arena *arena);
 
 typedef enum {
     EQ,
@@ -64,6 +64,10 @@ void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp);
 #ifdef WHELP_IMPLEMENTATION
 
 Whelp_Arena whelp_arena_new(size_t capacity) {
+    if (capacity == 0) {
+        fprintf(stderr, "ERROR: attempt to malloc 0.\n");
+        exit(1);
+    }
     Whelp_Arena arena = {0};
     arena.memory = malloc(capacity);
     arena.count = 0;
@@ -91,10 +95,17 @@ void whelp_arena_reset(Whelp_Arena *arena) {
     arena->count = 0;
 }
 
-void whelp_arena_free(Whelp_Arena **arena) {
-    free((*arena)->memory);
-    free(*arena);
-    *arena = NULL;
+void whelp_arena_free(Whelp_Arena *arena) {
+    if (arena == NULL) {
+        fprintf(stderr, "ERROR: attempt to free null.\n");
+        exit(1);
+    }
+    if (arena->memory == NULL) {
+        fprintf(stderr, "ERROR: attempt to free uninitialized arena.\n");
+        exit(1);
+    }
+    free(arena->memory);
+    arena->memory = NULL;
 }
 
 Whelp_Table *whelp_table_new(Whelp_Arena *arena, size_t rows, size_t cols) {

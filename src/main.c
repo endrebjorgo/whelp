@@ -4,14 +4,6 @@
 #include "../whelp.h"
 
 int main(void) {
-    /*
-    max 6x + 9y = 2 
-    subject to
-        2x + 3y <= 12,
-        x + y <= 5,
-        x, y >= 0
-    */
-
     double x = 0.0;
     double y = 0.0;
     double z = 0.0;
@@ -22,4 +14,6 @@ int main(void) {
     whelp_lp_add_constraint(&arena, lp, (double[]){3.0, 2.0, 1,0}, LE, 10.0);
     whelp_lp_add_constraint(&arena, lp, (double[]){2.0, 5.0, 3.0}, LE, 15.0);
     whelp_lp_solve(&arena, lp);
+
+    whelp_arena_free(&arena);
 }
