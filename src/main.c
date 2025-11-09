@@ -14,13 +14,12 @@ int main(void) {
 
     double x = 0.0;
     double y = 0.0;
+    double z = 0.0;
 
     Whelp_Arena arena = whelp_arena_new(1024);
-    Whelp_Lp *lp = whelp_lp_new(&arena, (double*[]){&x, &y}, 2);
-    whelp_lp_set_objective(&arena, lp, (double[]){6.0, 9.0}, 0.0);
-    whelp_lp_add_constraint(&arena, lp, (double[]){2.0, 3.0}, LE, 12.0);
-    whelp_lp_add_constraint(&arena, lp, (double[]){1.0, 1.0}, LE, 5.0);
-    whelp_lp_add_constraint(&arena, lp, (double[]){0.0, 1.0}, GE, 5.0);
-    whelp_lp_add_constraint(&arena, lp, (double[]){3.0, 1.0}, EQ, 8.0);
+    Whelp_Lp *lp = whelp_lp_new(&arena, (double*[]){&x, &y, &z}, 3);
+    whelp_lp_set_objective(&arena, lp, (double[]){2.0, 3.0, 4.0}, 0.0);
+    whelp_lp_add_constraint(&arena, lp, (double[]){3.0, 2.0, 1,0}, LE, 10.0);
+    whelp_lp_add_constraint(&arena, lp, (double[]){2.0, 5.0, 3.0}, LE, 15.0);
     whelp_lp_solve(&arena, lp);
 }

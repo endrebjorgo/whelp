@@ -2,8 +2,10 @@
 #define WHELP_H
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <assert.h>
+#include <float.h>
 
 #define WHELP_MAX_CONSTRAINTS 16
 
@@ -40,6 +42,8 @@ typedef struct {
 Whelp_Table *whelp_table_new(Whelp_Arena *arena, size_t rows, size_t cols);
 double whelp_table_get(Whelp_Table *table, size_t row, size_t col);
 void whelp_table_set(Whelp_Table *table, size_t row, size_t col, double value);
+int whelp_table_pivot_indices(Whelp_Table *table, size_t *row, size_t *col);
+int whelp_table_pivot(Whelp_Table *table);
 void whelp_table_display(Whelp_Table *table);
 
 typedef struct {
@@ -133,6 +137,72 @@ void whelp_table_set(Whelp_Table *table, size_t row, size_t col, double value) {
     table->items[row * table->cols + col] = value;
 }
 
+/* Reference example
+
+    [ -6.00 -9.00 0.00 0.00 0.00 ] 
+    [ 2.00 3.00 1.00 0.00 12.00 ] 
+    [ 1.00 1.00 0.00 1.00 5.00 ] 
+
+*/
+
+int whelp_table_pivot_indices(Whelp_Table *table, size_t *row, size_t *col) 
+{
+    size_t pivot_col = 0;
+    for (size_t j = 0; j < table->cols - 1; ++j) {
+        if (whelp_table_get(table, 0, j) < whelp_table_get(table, 0, pivot_col)) {
+            pivot_col = j;
+        }
+    }
+    if (whelp_table_get(table, 0, pivot_col) >= 0.0) return 0;
+    
+    size_t pivot_row = 1;
+    double max_reciprocal_ratio = DBL_MIN;
+    for (size_t i = 1; i < table->rows; ++i) {
+        double row_intersection = whelp_table_get(table, i, pivot_col);
+        double row_constant = whelp_table_get(table, i, table->cols - 1);
+        double reciprocal_ratio = row_intersection / row_constant;
+        if (reciprocal_ratio > max_reciprocal_ratio) {
+            max_reciprocal_ratio = reciprocal_ratio;
+            pivot_row = i;
+        }
+    }
+    if (max_reciprocal_ratio <= 0.0) return 0;
+
+    *row = pivot_row;
+    *col = pivot_col;
+    return 1;
+}
+
+int whelp_table_pivot(Whelp_Table *table) {
+    size_t pivot_row;
+    size_t pivot_col;
+    if (!whelp_table_pivot_indices(table, &pivot_row, &pivot_col)) {
+        return 0;
+    }
+    double divisor = whelp_table_get(table, pivot_row, pivot_col);
+    whelp_table_set(table, pivot_row, pivot_col, 1.0); // potential floating-point errors...
+    assert(divisor > 0.0 && "Unexpected.\n");
+    
+    for (size_t j = 0; j < table->cols; ++j) {
+        if (j == pivot_col) continue; // ... so just set instead of dividing.
+        double curr_value = whelp_table_get(table, pivot_row, j);
+        whelp_table_set(table, pivot_row, j, curr_value / divisor);
+    }
+    for (size_t i = 0; i < table->rows; ++i) {
+        if (i == pivot_row) continue;
+
+        double scale = whelp_table_get(table, i, pivot_col);
+        whelp_table_set(table, i, pivot_col, 0.0);
+        for (size_t j = 0; j < table->cols; ++j) {
+            if (j == pivot_col) continue; // same here
+            double curr_value = whelp_table_get(table, i, j);
+            double pivot_row_value = whelp_table_get(table, pivot_row, j);
+            whelp_table_set(table, i, j, curr_value - scale * pivot_row_value);
+        }
+    }
+    return 1;
+}
+
 void whelp_table_display(Whelp_Table *table) {
     for (size_t i = 0; i < table->rows; ++i) {
         printf("[ ");
@@ -177,6 +247,8 @@ void whelp_lp_set_objective(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, do
 }
 
 void whelp_lp_add_constraint(Whelp_Arena *arena, Whelp_Lp *lp, double *coeffs, Whelp_Sense sense, double constant) {
+    assert(sense == LE && "Not yet implemented for GE and EQ relations.\n");
+
     if (lp->constraints_count == WHELP_MAX_CONSTRAINTS) {
         fprintf(stderr, "ERROR: reached max number of constraints.\n");
         exit(1);
@@ -243,86 +315,14 @@ void whelp_lp_solve(Whelp_Arena *arena, Whelp_Lp *lp) {
         exit(1);
     }
     Whelp_Table *table = whelp_lp_generate_tableau(arena, lp);
-    whelp_table_display(table);
-}
-
-/* ADDED FROM OLD IMPLEMENTATION FOR LATER REFERENCE
-int lp_assign_pivot_idxs(Lp *lp, int *row, int *col) {
-    int best_j = 1;
-    for (int j = 1; j < lp->cols; ++j) {
-        if (lp->table[j] > lp->table[best_j]) {
-            best_j = j;
-        }
-    }
-    if (lp->table[best_j] <= 0.0) {
-        return 0;
-    }
-    double min_reciprocal_ratio = MAX_DOUBLE; 
-    int best_i = 1;
-    for (int i = 1; i < lp->rows; ++i) {
-        double num = lp->table[i * lp->cols + best_j];
-        double den = lp->table[i * lp->cols];
-        double reciprocal_ratio = num / den;
-        if (reciprocal_ratio < min_reciprocal_ratio) {
-            min_reciprocal_ratio = reciprocal_ratio;
-            best_i = i;
-        }
-    }
-    if (min_reciprocal_ratio >= 0.0) {
-        return 0;
-    }
-    *row = best_i;
-    *col = best_j;
-    return 1;
-}
-
-int lp_pivot(Lp *lp) {
-    int row;
-    int col;
-    if (!lp_assign_pivot_idxs(lp, &row, &col)) {
-        return 0;
-    }
-    double divisor = -1.0 * lp->table[row * lp->cols + col];
-    lp->table[row * lp->cols + col] = -1.0;
-    for (int j = 0; j < lp->cols; ++j) {
-        lp->table[row*lp->cols + j] /= divisor;
-    }
-    for (int i = 0; i < lp->rows; ++i) {
-        if (i == row) {
-            continue;
-        }
-        double scale = lp->table[i * lp->cols + col];
-        lp->table[i * lp->cols + col] = 0.0;
-        for (int j = 0; j < lp->cols; ++j) {
-            lp->table[i * lp->cols + j] += lp->table[row * lp->cols + j] * scale;
-        }
-    }
-    int row_idx = row + lp->cols - 1;
-    lp->idxs[col] ^= lp->idxs[row_idx];
-    lp->idxs[row_idx] ^= lp->idxs[col];
-    lp->idxs[col] ^= lp->idxs[row_idx];
-    return 1;
-}
-
-void lp_display_values(Lp *lp) {
-    printf("Z = %.2f\n", lp->table[0]);
-    for (int j = 1; j < lp->cols; ++j) {
-        double value = 0.0;
-        if (lp->idxs[j] >= lp->cols) {
-            int row = lp->idxs[j] - lp->cols + 1;
-            value = lp->table[row * lp->cols];
-        }
-        printf("x%d = %.2f\n", j, value);
+    
+    size_t count = 0;
+    while (count < 100) {
+        whelp_table_display(table);
+        printf("\n");
+        if (!whelp_table_pivot(table)) break;
+        count++;
     }
 }
-
-void lp_solve(Lp *lp) {
-    while (1) {
-        if (!lp_pivot(lp)) {
-            break;
-        }
-    }
-}
-*/
 
 #endif // WHELP_IMPLEMENTATION
